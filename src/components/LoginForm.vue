@@ -175,7 +175,7 @@ function validateName(value: string): boolean | string {
     }
 
     // Send login event to server
-    socketService.emit('student_login', loginData)
+    socketService.emit('login', loginData)
 
     // Wait for response (handled by socket listener)
 

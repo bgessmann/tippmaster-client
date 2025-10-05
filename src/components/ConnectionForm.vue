@@ -71,7 +71,7 @@ import { ref, onMounted } from 'vue'
 import { socketService } from '../services/socket.service'
 
 // Reactive refs
-const serverUrl = ref('')
+const serverUrl = ref('http://localhost:3000')
 
 // Get connection state from socket service
 const { connectionState } = socketService
@@ -88,7 +88,6 @@ onMounted(() => {
  * Validate server URL format
  */
 function validateUrl(value: string): boolean | string {
-  debugger;
   if (!value) {
     return 'Server URL is required'
   }

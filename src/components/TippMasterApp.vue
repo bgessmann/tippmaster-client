@@ -138,12 +138,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive,  onMounted, onUnmounted } from 'vue'
+import { ref, reactive,  onMounted, onUnmounted, watch } from 'vue'
 import { socketService } from '../services/socket.service'
 import ConnectionForm from './ConnectionForm.vue'
 import LoginForm from './LoginForm.vue'
 import TypingInterface from './TypingInterface.vue'
 import type { UserSession } from './LoginForm.vue'
+
 
 // Current step in the process
 type AppStep = 'connection' | 'login' | 'exercise'
@@ -162,11 +163,23 @@ const exerciseConfig = reactive({
 // Get connection state from socket service
 const { connectionState } = socketService
 
+watch(
+  () => socketService.connectionState.isConnected,
+  (isConnected) => {
+    if (isConnected && currentStep.value === 'connection') {
+      setupSocketListeners()
+      loadUserSession()
+      determineInitialStep()
+    }
+  }
+)
+
+
+
+
 // Setup and cleanup
 onMounted(() => {
-  setupSocketListeners()
-  loadUserSession()
-  determineInitialStep()
+
 })
 
 onUnmounted(() => {
@@ -257,6 +270,17 @@ function restartProcess(): void {
  * Setup socket event listeners
  */
 function setupSocketListeners(): void {
+  console.log("tippMasterApp.setupSocketListeners() called")
+  // Listen for successful connection
+  socketService.on('connect', () => {
+    console.log('Connected to server!!!!!')
+    console.log('Connection state:', connectionState.isConnected)
+    // Automatically proceed to login step after connection
+    if (currentStep.value === 'connection') {
+      nextStep()
+    }
+  })
+
   // Listen for login success
   socketService.on('login_response', (data: unknown) => {
     try {
@@ -272,6 +296,7 @@ function setupSocketListeners(): void {
     }
   })
 
+  // Rest der bestehenden Event-Listener...
   // Listen for exercise configuration updates
   socketService.on('exercise_config', (data: unknown) => {
     try {
@@ -295,10 +320,6 @@ function setupSocketListeners(): void {
   })
 
   // Listen for connection changes
-  socketService.on('connect', () => {
-    console.log('Connected to server')
-  })
-
   socketService.on('disconnect', () => {
     console.log('Disconnected from server')
     // If user was logged in and gets disconnected, go back to connection step
@@ -326,6 +347,8 @@ function cleanupSocketListeners(): void {
   socketService.off('session_expired')
 }
 </script>
+
+
 
 <style scoped>
 .tippmaster-app {

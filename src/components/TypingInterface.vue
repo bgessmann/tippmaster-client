@@ -678,6 +678,10 @@ function showMessage(message: string, cssClass: string, icon: string): void {
   background: white;
   min-height: 120px;
   position: relative;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
 }
 
 .char {

@@ -27,6 +27,7 @@ class SocketService {
    * @param serverUrl - Server URL (e.g., http://192.168.0.10:3000)
    */
   async connect(serverUrl: string): Promise<void> {
+    console.log('Connecting to server:', serverUrl);
     if (this.socket && this.socket.connected) {
       this.disconnect();
     }
@@ -133,7 +134,6 @@ class SocketService {
    */
   private setupEventListeners(): void {
     if (!this.socket) return;
-
     this.socket.on('connect', () => {
       this.connectionState.isConnected = true;
       this.connectionState.isConnecting = false;
