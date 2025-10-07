@@ -1,3 +1,137 @@
+<script setup lang="ts">
+import { ref, reactive,  onMounted, onUnmounted, watch } from 'vue'
+import ConnectionForm from './ConnectionForm.vue'
+import LoginForm from './LoginForm.vue'
+import TypingInterface from './TypingInterface.vue'
+
+import {useUserStore} from "stores/userStore";
+
+const userStore = useUserStore()
+const connectionState = ref(userStore.connectionState)
+
+// Current step in the process
+type AppStep = 'connection' | 'login' | 'exercise'
+const currentStep = ref<AppStep>('connection')
+
+// Exercise configuration
+const exerciseConfig = reactive({
+  allowCopyPaste: true,
+  allowCorrections: true
+})
+
+watch(
+  () => connectionState.value.isConnected,
+  (isConnected) => {
+    if (isConnected && currentStep.value === 'connection') {
+    }
+  }
+)
+
+
+
+
+// Setup and cleanup
+onMounted(() => {
+
+})
+
+onUnmounted(() => {
+  cleanupSocketListeners()
+})
+
+/**
+ * Load user session from localStorage
+ */
+function loadUserSession(): void {
+  try {
+    const savedSession = localStorage.getItem('tippmaster-user-session')
+    if (savedSession) {
+      userSession.value = JSON.parse(savedSession)
+    }
+  } catch (error) {
+    console.error('Error loading user session:', error)
+  }
+}
+
+/**
+ * Determine initial step based on current state
+ */
+function determineInitialStep(): void {
+  if (connectionState.value.isConnected && userSession.value) {
+    currentStep.value = 'exercise'
+  } else if (connectionState.value.isConnected) {
+    currentStep.value = 'login'
+  } else {
+    currentStep.value = 'connection'
+  }
+}
+
+/**
+ * Navigate to next step
+ */
+function nextStep(): void {
+  switch (currentStep.value) {
+    case 'connection':
+      if (connectionState.value.isConnected) {
+        currentStep.value = 'login'
+      }
+      break
+    case 'login':
+      if (userSession.value) {
+        currentStep.value = 'exercise'
+      }
+      break
+    case 'exercise':
+      // Stay on exercise step
+      break
+  }
+}
+
+/**
+ * Navigate to previous step
+ */
+function previousStep(): void {
+  switch (currentStep.value) {
+    case 'exercise':
+      currentStep.value = 'login'
+      break
+    case 'login':
+      currentStep.value = 'connection'
+      break
+    case 'connection':
+      // Stay on connection step
+      break
+  }
+}
+
+/**
+ * Restart the entire process
+ */
+function restartProcess(): void {
+  // Disconnect from server
+  socketService.disconnect()
+
+  // Clear user session
+  userSession.value = null
+  localStorage.removeItem('tippmaster-user-session')
+
+  // Reset to first step
+  currentStep.value = 'connection'
+}
+
+
+/**
+ * Cleanup socket event listeners
+ */
+function cleanupSocketListeners(): void {
+  socketService.off('login_response')
+  socketService.off('exercise_config')
+  socketService.off('connect')
+  socketService.off('disconnect')
+  socketService.off('session_expired')
+}
+</script>
+
 <template>
   <div class="tippmaster-app">
     <!-- Header -->
@@ -14,8 +148,10 @@
             text-color="white"
             :icon="connectionState.isConnected ? 'wifi' : 'wifi_off'"
             size="sm"
+            @click="connectionState.isConnected ? socketService.disconnect() : ''"
           >
             {{ connectionState.isConnected ? 'Connected' : 'Disconnected' }}
+
           </q-chip>
 
           <!-- User Status -->
@@ -25,6 +161,7 @@
             text-color="white"
             icon="person"
             size="sm"
+            @click="userSession = null"
           >
             {{ userSession.name }}
           </q-chip>
@@ -136,217 +273,6 @@
     </q-footer>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, reactive,  onMounted, onUnmounted, watch } from 'vue'
-import { socketService } from '../services/socket.service'
-import ConnectionForm from './ConnectionForm.vue'
-import LoginForm from './LoginForm.vue'
-import TypingInterface from './TypingInterface.vue'
-import type { UserSession } from './LoginForm.vue'
-
-
-// Current step in the process
-type AppStep = 'connection' | 'login' | 'exercise'
-const currentStep = ref<AppStep>('connection')
-
-// User session data
-// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
-const userSession = ref<UserSession | null>(null)
-
-// Exercise configuration
-const exerciseConfig = reactive({
-  allowCopyPaste: true,
-  allowCorrections: true
-})
-
-// Get connection state from socket service
-const { connectionState } = socketService
-
-watch(
-  () => socketService.connectionState.isConnected,
-  (isConnected) => {
-    if (isConnected && currentStep.value === 'connection') {
-      setupSocketListeners()
-      loadUserSession()
-      determineInitialStep()
-    }
-  }
-)
-
-
-
-
-// Setup and cleanup
-onMounted(() => {
-
-})
-
-onUnmounted(() => {
-  cleanupSocketListeners()
-})
-
-/**
- * Load user session from localStorage
- */
-function loadUserSession(): void {
-  try {
-    const savedSession = localStorage.getItem('tippmaster-user-session')
-    if (savedSession) {
-      userSession.value = JSON.parse(savedSession)
-    }
-  } catch (error) {
-    console.error('Error loading user session:', error)
-  }
-}
-
-/**
- * Determine initial step based on current state
- */
-function determineInitialStep(): void {
-  if (connectionState.isConnected && userSession.value) {
-    currentStep.value = 'exercise'
-  } else if (connectionState.isConnected) {
-    currentStep.value = 'login'
-  } else {
-    currentStep.value = 'connection'
-  }
-}
-
-/**
- * Navigate to next step
- */
-function nextStep(): void {
-  switch (currentStep.value) {
-    case 'connection':
-      if (connectionState.isConnected) {
-        currentStep.value = 'login'
-      }
-      break
-    case 'login':
-      if (userSession.value) {
-        currentStep.value = 'exercise'
-      }
-      break
-    case 'exercise':
-      // Stay on exercise step
-      break
-  }
-}
-
-/**
- * Navigate to previous step
- */
-function previousStep(): void {
-  switch (currentStep.value) {
-    case 'exercise':
-      currentStep.value = 'login'
-      break
-    case 'login':
-      currentStep.value = 'connection'
-      break
-    case 'connection':
-      // Stay on connection step
-      break
-  }
-}
-
-/**
- * Restart the entire process
- */
-function restartProcess(): void {
-  // Disconnect from server
-  socketService.disconnect()
-
-  // Clear user session
-  userSession.value = null
-  localStorage.removeItem('tippmaster-user-session')
-
-  // Reset to first step
-  currentStep.value = 'connection'
-}
-
-/**
- * Setup socket event listeners
- */
-function setupSocketListeners(): void {
-  console.log("tippMasterApp.setupSocketListeners() called")
-  // Listen for successful connection
-  socketService.on('connect', () => {
-    console.log('Connected to server!!!!!')
-    console.log('Connection state:', connectionState.isConnected)
-    // Automatically proceed to login step after connection
-    if (currentStep.value === 'connection') {
-      nextStep()
-    }
-  })
-
-  // Listen for login success
-  socketService.on('login_response', (data: unknown) => {
-    try {
-      const response = data as { success: boolean }
-      if (response.success) {
-        loadUserSession()
-        if (currentStep.value === 'login') {
-          nextStep()
-        }
-      }
-    } catch (error) {
-      console.error('Error handling login response:', error)
-    }
-  })
-
-  // Rest der bestehenden Event-Listener...
-  // Listen for exercise configuration updates
-  socketService.on('exercise_config', (data: unknown) => {
-    try {
-      const config = data as {
-        allowCopyPaste?: boolean
-        allowCorrections?: boolean
-      }
-
-      if (config.allowCopyPaste !== undefined) {
-        exerciseConfig.allowCopyPaste = config.allowCopyPaste
-      }
-
-      if (config.allowCorrections !== undefined) {
-        exerciseConfig.allowCorrections = config.allowCorrections
-      }
-
-      console.log('Exercise config updated:', exerciseConfig)
-    } catch (error) {
-      console.error('Error handling exercise config:', error)
-    }
-  })
-
-  // Listen for connection changes
-  socketService.on('disconnect', () => {
-    console.log('Disconnected from server')
-    // If user was logged in and gets disconnected, go back to connection step
-    if (currentStep.value !== 'connection') {
-      currentStep.value = 'connection'
-    }
-  })
-
-  // Listen for session expiration
-  socketService.on('session_expired', () => {
-    userSession.value = null
-    localStorage.removeItem('tippmaster-user-session')
-    currentStep.value = 'login'
-  })
-}
-
-/**
- * Cleanup socket event listeners
- */
-function cleanupSocketListeners(): void {
-  socketService.off('login_response')
-  socketService.off('exercise_config')
-  socketService.off('connect')
-  socketService.off('disconnect')
-  socketService.off('session_expired')
-}
-</script>
 
 
 

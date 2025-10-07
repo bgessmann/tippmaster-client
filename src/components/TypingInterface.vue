@@ -1,136 +1,6 @@
-<template>
-  <q-card class="typing-interface">
-    <q-card-section>
-      <div class="row items-center justify-between">
-        <div class="text-h6">Typing Exercise</div>
-        <div class="row q-gutter-md">
-          <q-chip
-            :color="exerciseState.isActive ? 'green' : 'grey'"
-            text-color="white"
-            icon="timer"
-          >
-            {{ formatTime(stats.elapsedTime) }}
-          </q-chip>
-          <q-chip color="blue" text-color="white" icon="speed">
-            {{ stats.wpm }} WPM
-          </q-chip>
-          <q-chip
-            :color="stats.accuracy >= 90 ? 'green' : stats.accuracy >= 75 ? 'orange' : 'red'"
-            text-color="white"
-            icon="analytics"
-          >
-            {{ stats.accuracy }}% ACC
-          </q-chip>
-        </div>
-      </div>
-    </q-card-section>
-
-    <!-- Text Display Area -->
-    <q-card-section class="text-display-section">
-      <div class="text-display" ref="textDisplayRef">
-        <span
-          v-for="(char, index) in textToType"
-          :key="index"
-          :class="getCharClass(index)"
-          class="char"
-        >{{ char === ' ' ? '·' : char }}</span>
-        <span v-if="showCursor" class="cursor">|</span>
-      </div>
-    </q-card-section>
-
-    <!-- Input Area -->
-    <q-card-section>
-      <q-input
-        v-model="userInput"
-        ref="inputRef"
-        :disable="!exerciseState.isActive || exerciseState.isPaused"
-        :readonly="exerciseState.isCompleted"
-        outlined
-        autofocus
-        placeholder="Start typing here..."
-        @input="onInput"
-        @keydown="onKeyDown"
-        @paste="onPaste"
-        class="typing-input"
-        hide-bottom-space
-      />
-
-      <div class="row justify-between q-mt-sm">
-        <div class="text-caption text-grey-6">
-          Position: {{ currentPosition }} / {{ textToType.length }}
-        </div>
-        <div class="text-caption text-grey-6">
-          Errors: {{ stats.errors }}
-        </div>
-      </div>
-    </q-card-section>
-
-    <!-- Control Buttons -->
-    <q-card-section>
-      <div class="row q-gutter-sm">
-        <q-btn
-          v-if="!exerciseState.isActive && !exerciseState.isCompleted"
-          color="primary"
-          @click="startExercise"
-          :disable="!textToType || !isLoggedIn"
-        >
-          Start Exercise
-        </q-btn>
-
-        <q-btn
-          v-if="exerciseState.isActive && !exerciseState.isPaused"
-          color="orange"
-          @click="pauseExercise"
-        >
-          Pause
-        </q-btn>
-
-        <q-btn
-          v-if="exerciseState.isPaused"
-          color="primary"
-          @click="resumeExercise"
-        >
-          Resume
-        </q-btn>
-
-        <q-btn
-          v-if="exerciseState.isCompleted"
-          color="green"
-          @click="submitResults"
-          :loading="isSubmitting"
-        >
-          Submit Results
-        </q-btn>
-
-        <q-btn
-          v-if="exerciseState.isActive || exerciseState.isCompleted"
-          color="grey"
-          outline
-          @click="resetExercise"
-        >
-          Reset
-        </q-btn>
-      </div>
-    </q-card-section>
-
-    <!-- Status Messages -->
-    <q-card-section v-if="statusMessage">
-      <q-banner
-        :class="statusMessageClass"
-        rounded
-      >
-        <template v-slot:avatar>
-          <q-icon :name="statusMessageIcon" />
-        </template>
-        {{ statusMessage }}
-      </q-banner>
-    </q-card-section>
-  </q-card>
-</template>
-
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import { socketService } from '../services/socket.service'
+
 
 // Props
 interface Props {
@@ -656,6 +526,136 @@ function showMessage(message: string, cssClass: string, icon: string): void {
   }, 3000)
 }
 </script>
+
+<template>
+  <q-card class="typing-interface">
+    <q-card-section>
+      <div class="row items-center justify-between">
+        <div class="text-h6">Typing Exercise</div>
+        <div class="row q-gutter-md">
+          <q-chip
+            :color="exerciseState.isActive ? 'green' : 'grey'"
+            text-color="white"
+            icon="timer"
+          >
+            {{ formatTime(stats.elapsedTime) }}
+          </q-chip>
+          <q-chip color="blue" text-color="white" icon="speed">
+            {{ stats.wpm }} WPM
+          </q-chip>
+          <q-chip
+            :color="stats.accuracy >= 90 ? 'green' : stats.accuracy >= 75 ? 'orange' : 'red'"
+            text-color="white"
+            icon="analytics"
+          >
+            {{ stats.accuracy }}% ACC
+          </q-chip>
+        </div>
+      </div>
+    </q-card-section>
+
+    <!-- Text Display Area -->
+    <q-card-section class="text-display-section">
+      <div class="text-display" ref="textDisplayRef">
+        <span
+          v-for="(char, index) in textToType"
+          :key="index"
+          :class="getCharClass(index)"
+          class="char"
+        >{{ char === ' ' ? '·' : char }}</span>
+        <span v-if="showCursor" class="cursor">|</span>
+      </div>
+    </q-card-section>
+
+    <!-- Input Area -->
+    <q-card-section>
+      <q-input
+        v-model="userInput"
+        ref="inputRef"
+        :disable="!exerciseState.isActive || exerciseState.isPaused"
+        :readonly="exerciseState.isCompleted"
+        outlined
+        autofocus
+        placeholder="Start typing here..."
+        @input="onInput"
+        @keydown="onKeyDown"
+        @paste="onPaste"
+        class="typing-input"
+        hide-bottom-space
+      />
+
+      <div class="row justify-between q-mt-sm">
+        <div class="text-caption text-grey-6">
+          Position: {{ currentPosition }} / {{ textToType.length }}
+        </div>
+        <div class="text-caption text-grey-6">
+          Errors: {{ stats.errors }}
+        </div>
+      </div>
+    </q-card-section>
+
+    <!-- Control Buttons -->
+    <q-card-section>
+      <div class="row q-gutter-sm">
+        <q-btn
+          v-if="!exerciseState.isActive && !exerciseState.isCompleted"
+          color="primary"
+          @click="startExercise"
+          :disable="!textToType || !isLoggedIn"
+        >
+          Start Exercise
+        </q-btn>
+
+        <q-btn
+          v-if="exerciseState.isActive && !exerciseState.isPaused"
+          color="orange"
+          @click="pauseExercise"
+        >
+          Pause
+        </q-btn>
+
+        <q-btn
+          v-if="exerciseState.isPaused"
+          color="primary"
+          @click="resumeExercise"
+        >
+          Resume
+        </q-btn>
+
+        <q-btn
+          v-if="exerciseState.isCompleted"
+          color="green"
+          @click="submitResults"
+          :loading="isSubmitting"
+        >
+          Submit Results
+        </q-btn>
+
+        <q-btn
+          v-if="exerciseState.isActive || exerciseState.isCompleted"
+          color="grey"
+          outline
+          @click="resetExercise"
+        >
+          Reset
+        </q-btn>
+      </div>
+    </q-card-section>
+
+    <!-- Status Messages -->
+    <q-card-section v-if="statusMessage">
+      <q-banner
+        :class="statusMessageClass"
+        rounded
+      >
+        <template v-slot:avatar>
+          <q-icon :name="statusMessageIcon" />
+        </template>
+        {{ statusMessage }}
+      </q-banner>
+    </q-card-section>
+  </q-card>
+</template>
 
 <style scoped>
 .typing-interface {

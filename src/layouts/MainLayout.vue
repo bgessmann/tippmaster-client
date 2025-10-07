@@ -1,3 +1,7 @@
+<script setup lang="ts">
+
+</script>
+
 <template>
   <q-layout view="hHh lpR fFf">
     <q-header elevated>
@@ -24,7 +28,3 @@
     </q-page-container>
   </q-layout>
 </template>
-
-<script setup lang="ts">
-
-</script>

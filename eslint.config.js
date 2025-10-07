@@ -69,7 +69,10 @@ export default defineConfigWithVueTs(
       'require-await': 'off',
       'no-explicit-any': 'off',
       // allow debugger during development only
-      'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off'
+      'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+      'vue/component-tags-order': ['error', {
+        order: ['script', 'template', 'style']
+      }],
     }
   },
 
