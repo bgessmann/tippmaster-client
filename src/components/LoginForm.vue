@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref,  onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import {useUserStore} from "src/stores/userStore";
-import {User} from "src/types/connectionType";
+import type {User} from "src/types/connectionType";
 
 const userStore = useUserStore()
 const connectionState = ref(userStore.connectionState)
@@ -37,7 +37,7 @@ function validateName(value: string): boolean | string {
 /**
  * Handle form submission - login
  */
- function onSubmit(): void {
+ async function onSubmit() {
   if (!studentName.value || !userStore.connectionState.isConnected) return
 
   isLoggingIn.value = true
@@ -50,7 +50,7 @@ function validateName(value: string): boolean | string {
     }
 
     // Send login event to server
-    userStore.login(loginData)
+    await userStore.login(loginData)
 
     // Wait for response (handled by socket listener)
 

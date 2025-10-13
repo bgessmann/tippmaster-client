@@ -68,6 +68,8 @@ export default defineConfigWithVueTs(
       'prefer-promise-reject-errors': 'off',
       'require-await': 'off',
       'no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+
       // allow debugger during development only
       'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
       'vue/component-tags-order': ['error', {

@@ -9,12 +9,8 @@ const serverUrl = ref('')
 
 // Load saved server URL from localStorage
 onMounted(async () => {
+  // Test
 
-  const savedUrl = localStorage.getItem('tippmaster-server-url')
-  if (savedUrl) {
-    serverUrl.value = savedUrl
-    await userStore.connect(savedUrl)
-  }
 })
 
 /**

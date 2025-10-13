@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import {useUserStore} from "stores/userStore"
+import type {ExerciseState, TypingResult, TypingStats} from "src/types/connectionType";
+
+const userStore = useUserStore()
 
 
 // Props
@@ -14,36 +18,6 @@ const props = withDefaults(defineProps<Props>(), {
   allowCorrections: true
 })
 
-// Interfaces
-interface ExerciseState {
-  isActive: boolean
-  isPaused: boolean
-  isCompleted: boolean
-  startTime: number | null
-  pauseTime: number | null
-  totalPauseTime: number
-}
-
-interface TypingStats {
-  wpm: number
-  accuracy: number
-  errors: number
-  corrections: number
-  elapsedTime: number
-  totalCharacters: number
-  correctCharacters: number
-}
-
-interface TypingResult {
-  duration: number
-  wpm: number
-  accuracy: number
-  errors: number
-  corrections: number
-  rawInput: string
-  expectedText: string
-  completedAt: string
-}
 
 // Reactive data
 const textToType = ref('')
@@ -358,7 +332,7 @@ function submitResults(): void {
       completedAt: new Date().toISOString()
     }
 
-    socketService.emit('submit_results', results)
+    userStore.sendMessage('submit_results', results)
     showMessage('Results submitted successfully!', 'text-white bg-green', 'check_circle')
 
   } catch (error) {
@@ -405,8 +379,8 @@ function startTimer(): void {
  */
 function sendProgressUpdate(): void {
   try {
-    if (socketService.isConnected) {
-      socketService.emit('typing_progress', {
+    if (userStore.connectionState.isConnected) {
+      userStore.sendMessage('typing_progress', {
         position: currentPosition.value,
         wpm: stats.wpm,
         accuracy: stats.accuracy,
@@ -427,20 +401,20 @@ function sendProgressUpdate(): void {
 const handleExerciseResumeWrapper = () => void handleExerciseResume()
 
 function setupSocketListeners(): void {
-  socketService.on('exercise_text', handleExerciseText)
-  socketService.on('exercise_pause', handleExercisePause)
-  socketService.on('exercise_resume', handleExerciseResumeWrapper)
-  socketService.on('exercise_config', handleExerciseConfig)
+  userStore.onServerEvent('exercise_text', handleExerciseText)
+  userStore.onServerEvent('exercise_pause', handleExercisePause)
+  userStore.onServerEvent('exercise_resume', handleExerciseResumeWrapper)
+  userStore.onServerEvent('exercise_config', handleExerciseConfig)
 }
 
 /**
  * Cleanup socket listeners
  */
 function cleanupSocketListeners(): void {
-  socketService.off('exercise_text', handleExerciseText)
-  socketService.off('exercise_pause', handleExercisePause)
-  socketService.off('exercise_resume', handleExerciseResumeWrapper)
-  socketService.off('exercise_config', handleExerciseConfig)
+  userStore.offServerEvent('exercise_text', handleExerciseText)
+  userStore.offServerEvent('exercise_pause', handleExercisePause)
+  userStore.offServerEvent('exercise_resume', handleExerciseResumeWrapper)
+  userStore.offServerEvent('exercise_config', handleExerciseConfig)
 }
 
 /**

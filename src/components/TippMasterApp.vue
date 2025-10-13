@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { ref, reactive,  onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive } from 'vue'
 import ConnectionForm from './ConnectionForm.vue'
 import LoginForm from './LoginForm.vue'
 import TypingInterface from './TypingInterface.vue'
 
+import type {User} from "src/types/connectionType";
 import {useUserStore} from "stores/userStore";
+
 
 const userStore = useUserStore()
 const connectionState = ref(userStore.connectionState)
+
+// User session
+const userSession = ref<User| null>(null )
 
 // Current step in the process
 type AppStep = 'connection' | 'login' | 'exercise'
@@ -19,117 +24,9 @@ const exerciseConfig = reactive({
   allowCorrections: true
 })
 
-watch(
-  () => connectionState.value.isConnected,
-  (isConnected) => {
-    if (isConnected && currentStep.value === 'connection') {
-    }
-  }
-)
 
 
 
-
-// Setup and cleanup
-onMounted(() => {
-
-})
-
-onUnmounted(() => {
-  cleanupSocketListeners()
-})
-
-/**
- * Load user session from localStorage
- */
-function loadUserSession(): void {
-  try {
-    const savedSession = localStorage.getItem('tippmaster-user-session')
-    if (savedSession) {
-      userSession.value = JSON.parse(savedSession)
-    }
-  } catch (error) {
-    console.error('Error loading user session:', error)
-  }
-}
-
-/**
- * Determine initial step based on current state
- */
-function determineInitialStep(): void {
-  if (connectionState.value.isConnected && userSession.value) {
-    currentStep.value = 'exercise'
-  } else if (connectionState.value.isConnected) {
-    currentStep.value = 'login'
-  } else {
-    currentStep.value = 'connection'
-  }
-}
-
-/**
- * Navigate to next step
- */
-function nextStep(): void {
-  switch (currentStep.value) {
-    case 'connection':
-      if (connectionState.value.isConnected) {
-        currentStep.value = 'login'
-      }
-      break
-    case 'login':
-      if (userSession.value) {
-        currentStep.value = 'exercise'
-      }
-      break
-    case 'exercise':
-      // Stay on exercise step
-      break
-  }
-}
-
-/**
- * Navigate to previous step
- */
-function previousStep(): void {
-  switch (currentStep.value) {
-    case 'exercise':
-      currentStep.value = 'login'
-      break
-    case 'login':
-      currentStep.value = 'connection'
-      break
-    case 'connection':
-      // Stay on connection step
-      break
-  }
-}
-
-/**
- * Restart the entire process
- */
-function restartProcess(): void {
-  // Disconnect from server
-  socketService.disconnect()
-
-  // Clear user session
-  userSession.value = null
-  localStorage.removeItem('tippmaster-user-session')
-
-  // Reset to first step
-  currentStep.value = 'connection'
-}
-
-
-/**
- * Cleanup socket event listeners
- */
-function cleanupSocketListeners(): void {
-  socketService.off('login_response')
-  socketService.off('exercise_config')
-  socketService.off('connect')
-  socketService.off('disconnect')
-  socketService.off('session_expired')
-}
 </script>
 
 <template>
@@ -148,7 +45,7 @@ function cleanupSocketListeners(): void {
             text-color="white"
             :icon="connectionState.isConnected ? 'wifi' : 'wifi_off'"
             size="sm"
-            @click="connectionState.isConnected ? socketService.disconnect() : ''"
+            @click="connectionState.isConnected ? userStore.disconnect() : ''"
           >
             {{ connectionState.isConnected ? 'Connected' : 'Disconnected' }}
 
@@ -187,7 +84,7 @@ function cleanupSocketListeners(): void {
               <q-btn
                 v-if="connectionState.isConnected"
                 color="primary"
-                @click="nextStep"
+
                 icon="arrow_forward"
               >
                 Next: Login
@@ -208,7 +105,7 @@ function cleanupSocketListeners(): void {
               <q-btn
                 color="grey"
                 outline
-                @click="previousStep"
+
                 icon="arrow_back"
               >
                 Back
@@ -217,7 +114,7 @@ function cleanupSocketListeners(): void {
               <q-btn
                 v-if="userSession"
                 color="primary"
-                @click="nextStep"
+
                 icon="arrow_forward"
               >
                 Next: Exercise
@@ -242,7 +139,7 @@ function cleanupSocketListeners(): void {
               <q-btn
                 color="grey"
                 outline
-                @click="previousStep"
+
                 icon="arrow_back"
               >
                 Back
@@ -250,7 +147,6 @@ function cleanupSocketListeners(): void {
 
               <q-btn
                 color="primary"
-                @click="restartProcess"
                 icon="refresh"
                 outline
               >

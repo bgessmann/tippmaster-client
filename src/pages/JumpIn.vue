@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
+import { useUserStore } from 'stores/userStore'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+
+// Reactive variables
+const isConnecting = ref(false)
+const connectionError = ref('')
 
 onMounted(async () => {
   try {
@@ -29,7 +34,7 @@ onMounted(async () => {
     console.log('Verbinde mit Server:', serverUrl)
 
     // Mit Server verbinden
-    await socketService.connect(serverUrl)
+    await userStore.connect(serverUrl)
 
     // Server-URL für zukünftige Verwendung speichern
     localStorage.setItem('tippmaster-server-url', serverUrl)
@@ -40,7 +45,7 @@ onMounted(async () => {
       localStorage.setItem('tippmaster-username', loginName)
 
       // Optional: Direkt beim Server einloggen
-      socketService.login(loginName)
+      await userStore.login({ name: loginName })
     }
 
     // Zur Hauptseite weiterleiten
@@ -51,8 +56,8 @@ onMounted(async () => {
     connectionError.value = error instanceof Error ? error.message : 'Unbekannter Fehler'
 
     // Nach kurzer Verzögerung zur normalen Verbindungsseite
-    setTimeout( () => {
-       router.push('/')
+    setTimeout(  () => {
+       // router.push('/').then()
     }, 3000)
   } finally {
     isConnecting.value = false

@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { io } from 'socket.io-client'
-import type {  Socket } from 'socket.io-client'
-import type { ConnectionState, User} from 'types/type.ts'
+import type { Socket } from 'socket.io-client'
+import type {ConnectionState, SendStatus, TypingResult, User} from '../types/connectionType'
 
 export const useUserStore = defineStore('user', () => {
   console.log('[UserStore] 📦 Store wird initialisiert...')
@@ -144,7 +143,7 @@ export const useUserStore = defineStore('user', () => {
           resolve()
         })
 
-        socket.on('connect_error', (error) => {
+        socket.on('connect_error', (error:any) => {
           console.error('[UserStore] ❌ Socket connect_error Event:', error)
           clearTimeout(timeout)
           reject(new Error(`Verbindungsfehler: ${error.message}`))
@@ -182,7 +181,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // Setup socket event listeners
-  function setupSocketListeners(socket: Socket) {
+  function setupSocketListeners(socket: typeof Socket) {
     console.log('[UserStore] 🎧 Richte Socket Event-Listener ein...')
 
     socket.on('connect', () => {
@@ -194,7 +193,7 @@ export const useUserStore = defineStore('user', () => {
       console.log('[UserStore] 🔄 Status aktualisiert - Verbunden!')
     })
 
-    socket.on('disconnect', (reason) => {
+    socket.on('disconnect', (reason: any) => {
       connectionState.value.isConnected = false
       isLoggedIn.value = false
       console.log('[UserStore] ❌ Socket EVENT: disconnect')
@@ -203,7 +202,8 @@ export const useUserStore = defineStore('user', () => {
       console.log('[UserStore] 👤 Benutzer automatisch abgemeldet')
     })
 
-    socket.on('connect_error', (error) => {
+
+    socket.on('connect_error', (error: any) => {
       connectionState.value.error = `Verbindungsfehler: ${error.message}`
       console.error('[UserStore] ❌ Socket EVENT: connect_error')
       console.error('[UserStore] 💥 Fehlerdetails:', {
@@ -214,14 +214,14 @@ export const useUserStore = defineStore('user', () => {
       })
     })
 
-    socket.on('reconnect_attempt', (attemptNumber) => {
+    socket.on('reconnect_attempt', (attemptNumber: number) => {
       connectionState.value.reconnectAttempts = attemptNumber
       console.log('[UserStore] 🔄 Socket EVENT: reconnect_attempt')
       console.log('[UserStore] 🔢 Versuch Nummer:', attemptNumber)
       console.log('[UserStore] 📊 Versuche:', `${attemptNumber}/${connectionState.value.maxReconnectAttempts}`)
     })
 
-    socket.on('reconnect', (attemptNumber) => {
+    socket.on('reconnect', (attemptNumber: number) => {
       console.log('[UserStore] ✅ Socket EVENT: reconnect')
       console.log('[UserStore] 🎉 Wiederverbindung erfolgreich nach', attemptNumber, 'Versuchen')
     })
@@ -234,7 +234,7 @@ export const useUserStore = defineStore('user', () => {
     })
 
     // Login response
-    socket.on('login_response', (response: { success: boolean, message?: string, user?: any }) => {
+    socket.on('login_response', (response: { success: boolean, message?: string, user?: User }) => {
       console.log('[UserStore] 📨 Socket EVENT: login_response')
       console.log('[UserStore] 📋 Login Response:', response)
 
@@ -256,7 +256,7 @@ export const useUserStore = defineStore('user', () => {
     })
 
     // Handle server commands
-    socket.on('server_command', (command: any) => {
+    socket.on('server_command', (command: never) => {
       console.log('[UserStore] 📨 Socket EVENT: server_command')
       console.log('[UserStore] ⚡ Server-Befehl empfangen:', command)
       // Hier können Sie weitere Server-Befehle verarbeiten
@@ -270,8 +270,6 @@ export const useUserStore = defineStore('user', () => {
     console.log('[UserStore] 👤 Login-Prozess gestartet...')
     console.log('[UserStore] 📋 Benutzerdaten:', {
       name: userData.name,
-      seatNumber: userData.seatNumber || 'nicht angegeben',
-      classId: userData.classId || 'nicht angegeben'
     })
 
     if (!connectionState.value.isConnected || !connectionState.value.socket) {
@@ -282,7 +280,7 @@ export const useUserStore = defineStore('user', () => {
 
     loginError.value = null
 
-    const loginData = {
+    const loginData:User = {
       ...userData,
       loginTime: new Date()
     }
@@ -294,8 +292,6 @@ export const useUserStore = defineStore('user', () => {
 
     const loginPayload = {
       name: userData.name,
-      seatNumber: userData.seatNumber,
-      classId: userData.classId,
       timestamp: loginData.loginTime
     }
 
@@ -383,7 +379,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // Send message to server
-  function sendMessage(event: string, data: any): void {
+  function sendMessage(event: string, data: SendStatus | TypingResult): void {
     console.log('[UserStore] 📤 Sende Nachricht an Server...')
     console.log('[UserStore] 📋 Event:', event)
     console.log('[UserStore] 📋 Data:', data)
@@ -401,11 +397,11 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // Listen to server events
-  function onServerEvent(event: string, callback: (data: any) => void): void {
+  function onServerEvent(event: string, callback: (data: never) => void): void {
     console.log('[UserStore] 👂 Registriere Event-Listener:', event)
 
     if (connectionState.value.socket) {
-      connectionState.value.socket.on(event, (data: any) => {
+      connectionState.value.socket.on(event, (data: never) => {
         console.log('[UserStore] 📨 Event empfangen:', event)
         console.log('[UserStore] 📋 Event Data:', data)
         callback(data)
@@ -417,7 +413,7 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // Remove server event listener
-  function offServerEvent(event: string, callback?: (data: any) => void): void {
+  function offServerEvent(event: string, callback?: (data: never) => void): void {
     console.log('[UserStore] 🚫 Entferne Event-Listener:', event)
 
     if (connectionState.value.socket) {
