@@ -8,7 +8,7 @@ const connectionState = ref(userStore.connectionState)
 
 
 // Reactive refs
-const studentName = ref('')
+const studentName = ref(userStore.user?.name)
 const isLoggingIn = ref(false)
 const isLoggedIn = ref(false)
 const loginError = ref('')
@@ -38,6 +38,7 @@ function validateName(value: string): boolean | string {
  * Handle form submission - login
  */
  async function onSubmit() {
+
   if (!studentName.value || !userStore.connectionState.isConnected) return
 
   isLoggingIn.value = true

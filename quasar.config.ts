@@ -12,6 +12,7 @@ export default defineConfig(() => {
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
     boot: [
+
       'userStore'
     ],
 
@@ -46,7 +47,9 @@ export default defineConfig(() => {
         vueShim: true
         // extendTsConfig (tsConfig) {}
       },
-
+      devServer: {
+        open: true
+      },
       vueRouterMode: 'hash', // available values: 'hash', 'history'
       // vueRouterBase,
       // vueDevtools,

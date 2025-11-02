@@ -34,7 +34,7 @@ onMounted(async () => {
     console.log('Verbinde mit Server:', serverUrl)
 
     // Mit Server verbinden
-    await userStore.connect(serverUrl)
+    await userStore.connect()
 
     // Server-URL für zukünftige Verwendung speichern
     localStorage.setItem('tippmaster-server-url', serverUrl)

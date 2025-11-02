@@ -1,13 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useUserStore } from 'stores/userStore'
 
-const userStore = useUserStore()
-
-// Initialize the store when MainLayout mounts
-onMounted(() => {
-  userStore.init()
-})
 </script>
 
 <template>

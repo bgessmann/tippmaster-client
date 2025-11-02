@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import io from 'socket.io-client'
 import type { Socket } from 'socket.io-client'
-import type {ConnectionState, SendStatus, TypingResult, User} from '../types/connectionType'
+
+
+import type {ConnectionConfig, ConnectionState, SendStatus, TypingResult, User} from '../types/connectionType'
 
 export const useUserStore = defineStore('user', () => {
   console.log('[UserStore] 📦 Store wird initialisiert...')
@@ -15,7 +18,11 @@ export const useUserStore = defineStore('user', () => {
   const connectionState = ref<ConnectionState>({
     isConnected: false,
     isConnecting: false,
-    serverUrl: null,
+    connectionConfig: {
+      serverUrl: '',
+      serverPort: 3000,
+      serverHttps: false
+    },
     error: null,
     socket: null,
     reconnectAttempts: 0,
@@ -24,17 +31,24 @@ export const useUserStore = defineStore('user', () => {
 
   // Computed
   const canConnect = computed(() => !connectionState.value.isConnecting && !connectionState.value.isConnected)
-  const needsLogin = computed(() => connectionState.value.isConnected && !isLoggedIn.value)
-  const isReady = computed(() => connectionState.value.isConnected && isLoggedIn.value)
+  const needsLogin = computed(() => connectionState.value.isConnected && !isLoggedIn.value || false)
+  const isReady = computed(() => connectionState.value.isConnected && isLoggedIn.value || false)
 
   // Load saved data from localStorage
   function loadSavedData() {
     console.log('[UserStore] 💾 Lade gespeicherte Daten aus localStorage...')
 
-    const savedUrl = localStorage.getItem('tippmaster-server-url')
-    if (savedUrl) {
-      connectionState.value.serverUrl = savedUrl
-      console.log('[UserStore] ✅ Gespeicherte Server-URL gefunden:', savedUrl)
+    const savedConfig = localStorage.getItem('tippmaster-server-config')
+
+    if (savedConfig) {
+      try{
+        const savedUrl = JSON.parse(savedConfig) as ConnectionConfig
+        connectionState.value.connectionConfig = savedUrl
+        console.log('[UserStore] ✅ Gespeicherte Server-URL gefunden:', savedUrl)
+      }catch {
+        localStorage.removeItem('tippmaster-server-config')
+      }
+
     } else {
       console.log('[UserStore] ❌ Keine gespeicherte Server-URL gefunden')
     }
@@ -42,10 +56,11 @@ export const useUserStore = defineStore('user', () => {
     const savedUser = localStorage.getItem('tippmaster-user')
     if (savedUser) {
       try {
+        debugger
         const parsedUser = JSON.parse(savedUser)
         user.value = {
           ...parsedUser,
-          loginTime: parsedUser.loginTime ? new Date(parsedUser.loginTime) : undefined
+          loginTime: undefined
         }
         console.log('[UserStore] ✅ Gespeicherte Benutzerdaten gefunden:', user.value?.name)
       } catch (error) {
@@ -71,9 +86,9 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // Connect to server
-  async function connect(serverUrl: string): Promise<void> {
+  async function connect(): Promise<void> {
     console.log('[UserStore] 🔗 Verbindungsaufbau gestartet...')
-    console.log('[UserStore] 📡 Target URL:', serverUrl)
+    console.log('[UserStore] 📡 Target URL:', connectionState.value.connectionConfig)
 
     if (connectionState.value.isConnecting) {
       console.warn('[UserStore] ⚠️ Verbindung bereits im Gange - überspringe')
@@ -91,10 +106,13 @@ export const useUserStore = defineStore('user', () => {
 
     console.log('[UserStore] ⏳ Status: Verbindung wird hergestellt...')
 
+    const config = connectionState.value.connectionConfig
+
     try {
       // Validate URL
       console.log('[UserStore] 🔍 Validiere URL...')
-      const url = new URL(serverUrl)
+      const url = new URL(`${config.serverHttps ? 'https' : 'http'}://${config.serverUrl}:${config.serverPort}`)
+
       console.log('[UserStore] 📋 URL Details:', {
         protocol: url.protocol,
         hostname: url.hostname,
@@ -109,10 +127,10 @@ export const useUserStore = defineStore('user', () => {
 
       // Create socket connection
       console.log('[UserStore] 🔌 Erstelle Socket-Verbindung...')
-      const socket = io(serverUrl, {
+      const socket = io(url.toString(), {
         timeout: 10000,
         reconnection: true,
-        reconnectionAttempts: connectionState.value.maxReconnectAttempts,
+        reconnectionAttempts: connectionState.value.maxReconnectAttempts ?? 5,
         reconnectionDelay: 2000,
         transports: ['websocket', 'polling']
       })
@@ -139,6 +157,7 @@ export const useUserStore = defineStore('user', () => {
 
         socket.on('connect', () => {
           console.log('[UserStore] ✅ Socket connect Event erhalten')
+
           clearTimeout(timeout)
           resolve()
         })
@@ -151,18 +170,17 @@ export const useUserStore = defineStore('user', () => {
       })
 
       connectionState.value.socket = socket
-      connectionState.value.serverUrl = serverUrl
       connectionState.value.isConnected = true
 
-      // Save successful connection
-      localStorage.setItem('tippmaster-server-url', serverUrl)
+      // Save a successful connection
+      localStorage.setItem('tippmaster-server-config', JSON.stringify(config))
       console.log('[UserStore] 💾 Erfolgreiche Verbindung gespeichert')
 
       console.log('[UserStore] 🎉 Verbindung erfolgreich hergestellt!')
       console.log('[UserStore] 📈 Verbindungsstatus:', {
         isConnected: connectionState.value.isConnected,
         isConnecting: connectionState.value.isConnecting,
-        serverUrl: connectionState.value.serverUrl
+        serverUrl: url.toString()
       })
 
     } catch (error) {
@@ -171,13 +189,39 @@ export const useUserStore = defineStore('user', () => {
       console.error('[UserStore] 💥 Verbindungsfehler aufgetreten:', {
         error: errorMessage,
         originalError: error,
-        serverUrl: serverUrl
       })
       throw error
     } finally {
       connectionState.value.isConnecting = false
       console.log('[UserStore] 🏁 Verbindungsversuch abgeschlossen')
     }
+  }
+
+  // Disconnect from server
+  function disconnect(): void {
+    console.log('[UserStore] 🔌 Disconnect-Prozess gestartet...')
+    if(isLoggedIn.value === true) {
+      logout();
+    }
+    if (connectionState.value.socket) {
+      console.log('[UserStore] 📤 Trenne Socket-Verbindung...')
+      console.log('[UserStore] 🆔 Socket ID:', connectionState.value.socket.id)
+      connectionState.value.socket.disconnect()
+      connectionState.value.socket = null
+      console.log('[UserStore] ✅ Socket getrennt und nullgesetzt')
+    } else {
+      console.log('[UserStore] ⚠️ Kein Socket zu trennen')
+    }
+
+    const oldServerUrl = connectionState.value.connectionConfig.serverUrl
+    connectionState.value.isConnected = false
+    connectionState.value.error = null
+    user.value = null
+    isLoggedIn.value = false
+    loginError.value = null
+
+    console.log('[UserStore] 🔄 Verbindungsstatus zurückgesetzt')
+    console.log('[UserStore] ✅ Verbindung getrennt von:', oldServerUrl)
   }
 
   // Setup socket event listeners
@@ -202,6 +246,12 @@ export const useUserStore = defineStore('user', () => {
       console.log('[UserStore] 👤 Benutzer automatisch abgemeldet')
     })
 
+    socket.on('sc_logout', (reason: any) => {
+      logout()
+      console.log('[UserStore] ❌ Socket EVENT: sc_logout')
+      console.log('[UserStore] 📋 Disconnect Reason:', reason)
+      console.log('[UserStore] 👤 Benutzer automatisch abgemeldet')
+    })
 
     socket.on('connect_error', (error: any) => {
       connectionState.value.error = `Verbindungsfehler: ${error.message}`
@@ -234,7 +284,7 @@ export const useUserStore = defineStore('user', () => {
     })
 
     // Login response
-    socket.on('login_response', (response: { success: boolean, message?: string, user?: User }) => {
+    socket.on('sc_login_response', (response: { success: boolean, message?: string, user?: User }) => {
       console.log('[UserStore] 📨 Socket EVENT: login_response')
       console.log('[UserStore] 📋 Login Response:', response)
 
@@ -270,6 +320,7 @@ export const useUserStore = defineStore('user', () => {
     console.log('[UserStore] 👤 Login-Prozess gestartet...')
     console.log('[UserStore] 📋 Benutzerdaten:', {
       name: userData.name,
+      id: userData.id
     })
 
     if (!connectionState.value.isConnected || !connectionState.value.socket) {
@@ -299,7 +350,7 @@ export const useUserStore = defineStore('user', () => {
     console.log('[UserStore] 📋 Login-Payload:', loginPayload)
 
     // Send login event to server
-    connectionState.value.socket.emit('user_login', loginPayload)
+    connectionState.value.socket.emit('cs_login', loginPayload)
 
     // Wait for server response (with timeout)
     console.log('[UserStore] ⏳ Warte auf Server-Antwort...')
@@ -315,6 +366,7 @@ export const useUserStore = defineStore('user', () => {
 
         if (response.success) {
           console.log('[UserStore] ✅ Login-Response: Erfolgreich!')
+          isLoggedIn.value = true
           resolve()
         } else {
           console.error('[UserStore] ❌ Login-Response: Fehlgeschlagen!')
@@ -333,12 +385,12 @@ export const useUserStore = defineStore('user', () => {
 
     if (connectionState.value.socket && isLoggedIn.value) {
       const logoutPayload = {
-        name: user.value?.name,
+        userId: user.value?.id,
         timestamp: new Date()
       }
       console.log('[UserStore] 📤 Sende Logout-Event an Server...')
       console.log('[UserStore] 📋 Logout-Payload:', logoutPayload)
-      connectionState.value.socket.emit('user_logout', logoutPayload)
+      connectionState.value.socket.emit('cs_logout', logoutPayload)
     } else {
       console.log('[UserStore] ⚠️ Kein Socket oder nicht eingeloggt - nur lokaler Logout')
     }
@@ -347,36 +399,13 @@ export const useUserStore = defineStore('user', () => {
     loginError.value = null
     const userName = user.value?.name
     user.value = null
-    localStorage.removeItem('tippmaster-user')
+    //localStorage.removeItem('tippmaster-user')
 
     console.log('[UserStore] ✅ Benutzer abgemeldet:', userName)
     console.log('[UserStore] 🗑️ Lokale Benutzerdaten gelöscht')
   }
 
-  // Disconnect from server
-  function disconnect(): void {
-    console.log('[UserStore] 🔌 Disconnect-Prozess gestartet...')
 
-    if (connectionState.value.socket) {
-      console.log('[UserStore] 📤 Trenne Socket-Verbindung...')
-      console.log('[UserStore] 🆔 Socket ID:', connectionState.value.socket.id)
-      connectionState.value.socket.disconnect()
-      connectionState.value.socket = null
-      console.log('[UserStore] ✅ Socket getrennt und nullgesetzt')
-    } else {
-      console.log('[UserStore] ⚠️ Kein Socket zu trennen')
-    }
-
-    const oldServerUrl = connectionState.value.serverUrl
-    connectionState.value.isConnected = false
-    connectionState.value.error = null
-    connectionState.value.serverUrl = null
-    isLoggedIn.value = false
-    loginError.value = null
-
-    console.log('[UserStore] 🔄 Verbindungsstatus zurückgesetzt')
-    console.log('[UserStore] ✅ Verbindung getrennt von:', oldServerUrl)
-  }
 
   // Send message to server
   function sendMessage(event: string, data: SendStatus | TypingResult): void {
@@ -425,17 +454,21 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // Initialize store
-  function init(): void {
+  async function init(): Promise<void> {
     console.log('[UserStore] 🚀 Store-Initialisierung...')
     loadSavedData()
     console.log('[UserStore] ✅ Store initialisiert')
     console.log('[UserStore] 📊 Initialer Status:', {
       hasUser: !!user.value,
       userName: user.value?.name,
-      savedServerUrl: connectionState.value.serverUrl,
       isConnected: connectionState.value.isConnected,
       isLoggedIn: isLoggedIn.value
     })
+    if(connectionState.value.connectionConfig.serverUrl) {
+        isLoggedIn.value = false;
+        user.value = null;
+        await connect()
+    }
   }
 
   // Reset store
@@ -443,7 +476,7 @@ export const useUserStore = defineStore('user', () => {
     console.log('[UserStore] 🔄 Store-Reset gestartet...')
     disconnect()
     logout()
-    localStorage.removeItem('tippmaster-server-url')
+    localStorage.removeItem('tippmaster-server-config')
     localStorage.removeItem('tippmaster-user')
     console.log('[UserStore] ✅ Store komplett zurückgesetzt')
     console.log('[UserStore] 🗑️ Alle localStorage-Daten gelöscht')

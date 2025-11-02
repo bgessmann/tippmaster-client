@@ -1,22 +1,20 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import {  reactive } from 'vue'
 import ConnectionForm from './ConnectionForm.vue'
 import LoginForm from './LoginForm.vue'
 import TypingInterface from './TypingInterface.vue'
 
-import type {User} from "src/types/connectionType";
+
 import {useUserStore} from "stores/userStore";
+import {storeToRefs} from "pinia";
+
 
 
 const userStore = useUserStore()
-const connectionState = ref(userStore.connectionState)
 
-// User session
-const userSession = ref<User| null>(null )
+const connection = storeToRefs(userStore)
 
-// Current step in the process
-type AppStep = 'connection' | 'login' | 'exercise'
-const currentStep = ref<AppStep>('connection')
+
 
 // Exercise configuration
 const exerciseConfig = reactive({
@@ -40,28 +38,32 @@ const exerciseConfig = reactive({
 
         <div class="row items-center q-gutter-md">
           <!-- Connection Status -->
-          <q-chip
-            :color="connectionState.isConnected ? 'green' : 'red'"
-            text-color="white"
-            :icon="connectionState.isConnected ? 'wifi' : 'wifi_off'"
-            size="sm"
-            @click="connectionState.isConnected ? userStore.disconnect() : ''"
-          >
-            {{ connectionState.isConnected ? 'Connected' : 'Disconnected' }}
+          <div @click="userStore.disconnect()" class="cursor-pointer">
+            <q-chip
+              :color="connection.connectionState.value.isConnected ? 'green' : 'red'"
+              text-color="white"
+              :icon="connection.connectionState.value.isConnected ? 'wifi' : 'wifi_off'"
+              size="sm"
+            >
+              {{ connection.connectionState.value.isConnected ? 'Connected' : 'Disconnected' }}
+            </q-chip>
 
-          </q-chip>
+          </div>
 
-          <!-- User Status -->
-          <q-chip
-            v-if="userSession"
-            color="blue"
-            text-color="white"
-            icon="person"
-            size="sm"
-            @click="userSession = null"
-          >
-            {{ userSession.name }}
-          </q-chip>
+          <div @click="userStore.logout()" class="cursor-pointer">
+            <!-- User Status -->
+            <q-chip
+              v-if="connection.isReady.value === true"
+              color="blue"
+              text-color="white"
+              icon="person"
+              size="sm"
+              @click="userStore.logout()"
+            >
+              {{ connection.user.value?.name }}
+            </q-chip>
+          </div>
+
         </div>
       </q-toolbar>
     </q-header>
@@ -72,28 +74,19 @@ const exerciseConfig = reactive({
         <div class="full-width">
 
           <!-- Step 1: Server Connection -->
-          <div v-if="currentStep === 'connection'" class="step-container">
+          <div v-if="userStore.canConnect" class="step-container">
             <div class="step-header">
               <h4>Step 1: Connect to Server</h4>
               <p class="text-grey-6">Enter the server URL to establish connection</p>
             </div>
 
-            <ConnectionForm />
+            <ConnectionForm  />
 
-            <div class="step-actions">
-              <q-btn
-                v-if="connectionState.isConnected"
-                color="primary"
 
-                icon="arrow_forward"
-              >
-                Next: Login
-              </q-btn>
-            </div>
           </div>
 
           <!-- Step 2: Student Login -->
-          <div v-if="currentStep === 'login'" class="step-container">
+          <div v-if="userStore.needsLogin" class="step-container">
             <div class="step-header">
               <h4>Step 2: Student Login</h4>
               <p class="text-grey-6">Enter your student information</p>
@@ -101,36 +94,19 @@ const exerciseConfig = reactive({
 
             <LoginForm />
 
-            <div class="step-actions">
-              <q-btn
-                color="grey"
-                outline
 
-                icon="arrow_back"
-              >
-                Back
-              </q-btn>
-
-              <q-btn
-                v-if="userSession"
-                color="primary"
-
-                icon="arrow_forward"
-              >
-                Next: Exercise
-              </q-btn>
-            </div>
           </div>
 
           <!-- Step 3: Typing Exercise -->
-          <div v-if="currentStep === 'exercise'" class="step-container">
+          <div v-if="userStore.isReady" class="step-container">
             <div class="step-header">
               <h4>Step 3: Typing Exercise</h4>
               <p class="text-grey-6">Complete the typing exercise</p>
             </div>
 
+            <exemen-loader-component></exemen-loader-component>
             <TypingInterface
-              :is-logged-in="!!userSession"
+              :is-logged-in="!!connection.isReady"
               :allow-copy-paste="exerciseConfig.allowCopyPaste"
               :allow-corrections="exerciseConfig.allowCorrections"
             />
